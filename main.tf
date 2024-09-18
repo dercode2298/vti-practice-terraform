@@ -1,105 +1,39 @@
 
-# locals {
-#   #calculate the number of availability zones
-#   azs = data.aws_availability_zones.available.names
+locals {
+  #calculate the number of availability zones
+  azs = length(data.aws_availability_zones.available.names)
+}
+
+//calling the network module
+
+module "network" {
+  source   = "./_modules/network"
+  azs      = local.azs
+  vpc_name = var.vpc_name
+  tags     = var.tags
+  cidrvpc  = var.cidrvpc
+  aznames  = data.aws_availability_zones.available.names
+}
+
+//calling the ec2 module
+module "ec2" {
+  source     = "./_modules/ec2"
+  depends_on = [module.network]
+  for_each = var.bastion_definition
+  bastion_instance_class = each.value.bastion_instance_class
+  bastion_name           = each.value.bastion_name
+  bastion_public_key     = each.value.bastion_public_key
+  trusted_ips            = toset(each.value.trusted_ips)
+  default_tags           = merge(var.tags, each.value.ext-tags)
+  user_data_base64       = each.value.user_data_base64
+  bastion_ami            = each.value.bastion_ami
+  associate_public_ip_address = each.value.associate_public_ip_address
+  public_subnet_id       = module.network.public_subnet_id[0]
+  bastion_monitoring     = each.value.bastion_monitoring
+  vpc_id                 = module.network.vpc_id
+} 
+
+# module "s3" {
+#   count = var.create_s3_bucket ? 1 : 0
+#   source = "./_modules/s3"
 # }
-
-
-
-//create VPC
-resource "aws_vpc" "hungnv-vpc" {
-  cidr_block = var.cidrvpc
-
-  tags = var.tag
-}
-
-
-//Create public subnet
-resource "aws_subnet" "public" {
-  vpc_id            = aws_vpc.hungnv-vpc.id
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-  count             = var.az_count
-  cidr_block        = cidrsubnet(aws_vpc.hungnv-vpc.cidr_block, 8, count.index)
-  tags = merge({
-    Name = "${var.vpc_name}-public-subnet"
-  }, var.tag)
-
-}
-
-//create internet gateway
-resource "aws_internet_gateway" "main-igw" {
-  vpc_id = aws_vpc.hungnv-vpc.id
-  tags = merge({
-    Name = "${var.vpc_name}-igw"
-  }, var.tag)
-}
-
-resource "aws_route" "main_route" {
-  route_table_id         = aws_vpc.hungnv-vpc.main_route_table_id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.main-igw.id
-}
-
-//associate route table with public subnet
-resource "aws_route_table_association" "public_subnet_rtb" {
-  count          = var.az_count
-  subnet_id      = element(aws_subnet.public.*.id, count.index)
-  route_table_id = aws_vpc.hungnv-vpc.main_route_table_id
-}
-
-//create eip 
-resource "aws_eip" "nateip" {
-  count = var.az_count
-  tags = merge({
-    ext-name = "${var.vpc_name}-eip-${count.index}"
-  }, var.tag)
-}
-
-//create nat gateway
-resource "aws_nat_gateway" "nat" {
-  count         = var.az_count
-  allocation_id = element(aws_eip.nateip.*.id, count.index)
-  subnet_id     = element(aws_subnet.public.*.id, count.index)
-  tags = merge({
-    ext-name = "${var.vpc_name}-nat-${count.index}"
-  }, var.tag)
-}
-
-//create private subnet
-resource "aws_subnet" "private" {
-  vpc_id            = aws_vpc.hungnv-vpc.id
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-  count             = 3
-  cidr_block        = cidrsubnet(aws_vpc.hungnv-vpc.cidr_block, 8, count.index + var.az_count)
-  tags = merge({
-    Name = "${var.vpc_name}-private-subnet"
-  }, var.tag)
-
-}
-
-
-//create route table for private subnet
-resource "aws_route_table" "private_rtb" {
-  count  = var.az_count
-  vpc_id = aws_vpc.hungnv-vpc.id
-
-  #define route table for private subnet
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = element(aws_nat_gateway.nat.*.id, count.index)
-  }
-  tags = merge(
-    {
-      ext-name = "${var.vpc_name}-private-rtb-${count.index}"
-    },
-    var.tag
-  )
-}
-
-//asoociate route table with private subnet
-resource "aws_route_table_association" "private_subnet_rtb" {
-  count          = var.az_count
-  subnet_id      = element(aws_subnet.private.*.id, count.index)
-  route_table_id = element(aws_route_table.private_rtb.*.id, count.index)
-}
-
