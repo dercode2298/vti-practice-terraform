@@ -10,7 +10,9 @@ module "network" {
   source   = "./_modules/network"
   azs      = local.azs
   vpc_name = var.vpc_name
-  tags     = var.tags
+  tags     = merge(var.tags,{
+    "ext-tag"= terraform.workspace
+  })
   cidrvpc  = var.cidrvpc
   aznames  = data.aws_availability_zones.available.names
 }

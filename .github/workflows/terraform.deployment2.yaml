@@ -8,6 +8,33 @@ on:
       - terraform-actions
       
 jobs:
+  terrascan:
+    name: "Terrascan scan"
+    runs-on: ubuntu-latest
+    steps:
+      #check out the terraform repository
+      - name: "Checkout tf source"
+        uses: actions/checkout@v3
+      
+      # set up terrascan cli
+      - name: "Setup Terrascan Engine"
+        run: |
+          curl -L "$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.+?_Linux_x86_64.tar.gz")" > terrascan.tar.gz
+          tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
+          install terrascan /usr/local/bin && rm terrascan
+          terrascan version
+      - name: "Terrascan scan"
+        run: "terrascan scan -t aws"
+
+      - name: "check the violations"
+        run: |
+          if terrascan scan -t aws | grep -q "violations"; then
+            echo "Violations found"
+            exit 1
+          else
+            echo "No violations found"
+          fi
+        continue-on-error: true
   terraform:
     name: "Terraform provision"
     runs-on: ubuntu-latest
@@ -26,5 +53,22 @@ jobs:
       - name: "init Terraform"
         run: "terraform init"
 
-      - name: "get tf workspace"
-        run: "terraform workspace show"
+      #create the dev workspace
+      - name: "create dev workspace"
+        run: "terraform workspace new prod"
+            
+
+      - name: "Checkout workspace"
+        run: "terraform workspace select prod"
+      
+      - name: "Verify the prod tfvars"
+        run: "terraform plan -var-file=./envs/prod.tfvars"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: "Apply the prod tfvars"
+        run: "terraform apply -var-file=./envs/prod.tfvars --auto-approve"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
