@@ -33,7 +33,7 @@ jobs:
   #           # exit 1
   #         else
   #           echo "No violations found"
-          fi
+          # fi
         # continue-on-error: true
   terraform:
     name: "Terraform provision"
