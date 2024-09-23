@@ -2,10 +2,10 @@ name: "Terraform deployment"
 on:
   push:
     branches:
-      - master
+      - terraform-actions
   pull_request:
     branches:
-      - master
+      - terraform-actions
       
 jobs:
   terraform:
