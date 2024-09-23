@@ -1,0 +1,30 @@
+name: "Terraform deployment"
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+      
+jobs:
+  terraform:
+    name: "Terraform provision"
+    runs-on: ubuntu-latest
+    steps:
+      #check out the terraform repository
+      - name: "Checkout tf source"
+        uses: actions/checkout@v3
+      
+      # setup terraform cli
+      - name: "Setup Terraform"
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.9.6
+          terraform_wrapper: false
+      #init
+      - name: "init Terraform"
+        run: "terraform init"
+
+      - name: "get tf workspace"
+        run: "terraform workspace show"
