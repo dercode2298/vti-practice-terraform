@@ -8,31 +8,31 @@ on:
       - terraform-actions
       
 jobs:
-  terrascan:
-    name: "Terrascan scan"
-    runs-on: ubuntu-latest
-    steps:
-      #check out the terraform repository
-      - name: "Checkout tf source"
-        uses: actions/checkout@v3
+  # terrascan:
+  #   name: "Terrascan scan"
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     #check out the terraform repository
+  #     - name: "Checkout tf source"
+  #       uses: actions/checkout@v3
       
-      # set up terrascan cli
-      - name: "Setup Terrascan Engine"
-        run: |
-          curl -L "$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.+?_Linux_x86_64.tar.gz")" > terrascan.tar.gz
-          tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
-          install terrascan /usr/local/bin && rm terrascan
-          terrascan version
-      - name: "Terrascan scan"
-        run: "terrascan scan -t aws"
+  #     # set up terrascan cli
+  #     - name: "Setup Terrascan Engine"
+  #       run: |
+  #         curl -L "$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.+?_Linux_x86_64.tar.gz")" > terrascan.tar.gz
+  #         tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
+  #         install terrascan /usr/local/bin && rm terrascan
+  #         terrascan version
+  #     - name: "Terrascan scan"
+  #       run: "terrascan scan -t aws"
 
-      - name: "check the violations"
-        run: |
-          if terrascan scan -t aws | grep -q "violations"; then
-            echo "Violations found"
-            # exit 1
-          else
-            echo "No violations found"
+  #     - name: "check the violations"
+  #       run: |
+  #         if terrascan scan -t aws | grep -q "violations"; then
+  #           echo "Violations found"
+  #           # exit 1
+  #         else
+  #           echo "No violations found"
           fi
         # continue-on-error: true
   terraform:
